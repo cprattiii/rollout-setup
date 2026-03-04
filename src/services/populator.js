@@ -41,6 +41,22 @@ export class Populator {
       cloze: [],
       lofty: [],
     };
+
+    // Generated data (for export and verification)
+    this.generatedData = {
+      cloze: {
+        contacts: [],
+        properties: [],
+        deals: [],
+        activities: [],
+      },
+      lofty: {
+        contacts: [],
+        properties: [],
+        deals: [],
+        activities: [],
+      },
+    };
   }
 
   createPlatformStats() {
@@ -85,6 +101,9 @@ export class Populator {
     );
     logger.success(`Generated ${contacts.length} contacts`);
 
+    // Store generated contacts for export/verification
+    this.generatedData[platformName].contacts = contacts;
+
     // Populate contacts with rate limiting
     logger.info(`\nPopulating contacts in ${platformName}...`);
     const contactResults = await this.populateContacts(platformName, client, contacts);
@@ -105,15 +124,30 @@ export class Populator {
 
     // Populate properties
     logger.info(`\nPopulating properties for ${successfulContacts.length} contacts...`);
-    await this.populateProperties(platformName, client, successfulContacts);
+    const propertyResults = await this.populateProperties(platformName, client, successfulContacts);
+
+    // Store successful properties for export/verification
+    this.generatedData[platformName].properties = propertyResults
+      .filter((r) => r.success)
+      .map((r) => r.result);
 
     // Populate deals
     logger.info(`\nPopulating deals for ${successfulContacts.length} contacts...`);
-    await this.populateDeals(platformName, client, successfulContacts);
+    const dealResults = await this.populateDeals(platformName, client, successfulContacts);
+
+    // Store successful deals for export/verification
+    this.generatedData[platformName].deals = dealResults
+      .filter((r) => r.success)
+      .map((r) => r.result);
 
     // Populate activities
     logger.info(`\nPopulating activities for ${successfulContacts.length} contacts...`);
-    await this.populateActivities(platformName, client, successfulContacts);
+    const activityResults = await this.populateActivities(platformName, client, successfulContacts);
+
+    // Store successful activities for export/verification
+    this.generatedData[platformName].activities = activityResults
+      .filter((r) => r.success)
+      .map((r) => r.result);
 
     stats.endTime = new Date();
     logger.info(`\n${platformName.toUpperCase()} population complete!`);
@@ -166,7 +200,6 @@ export class Populator {
         allProperties.push({
           ...property,
           contactId: contact.id,
-          contact, // Store contact reference for later use
         });
       }
     }
@@ -441,6 +474,13 @@ export class Populator {
       stats: this.stats,
       failed: this.failed,
     };
+  }
+
+  /**
+   * Get generated data for export/verification
+   */
+  getGeneratedData() {
+    return this.generatedData;
   }
 }
 

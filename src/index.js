@@ -9,6 +9,8 @@ import { parseArgs } from 'util';
 import config, { validateConfig } from './config.js';
 import logger from './utils/logger.js';
 import Populator from './services/populator.js';
+import Exporter from './services/exporter.js';
+import Verifier from './services/verifier.js';
 
 // Parse command-line arguments
 function parseArguments() {
@@ -153,14 +155,57 @@ async function main() {
     // Run population
     await populator.populate();
 
-    // TODO: Export data if requested
-    if (args.export) {
-      logger.info(`\nData export (${args.export}) will be implemented in Phase 5`);
+    // Export data if requested
+    if (args.export && args.export !== 'none') {
+      logger.info(`\n${'='.repeat(60)}`);
+      logger.info('EXPORTING DATA');
+      logger.info('='.repeat(60));
+
+      const exporter = new Exporter();
+      const generatedData = populator.getGeneratedData();
+
+      if (args.platform === 'both' || args.platform === 'cloze') {
+        await exporter.exportPlatformData('cloze', generatedData.cloze, args.export);
+      }
+
+      if (args.platform === 'both' || args.platform === 'lofty') {
+        await exporter.exportPlatformData('lofty', generatedData.lofty, args.export);
+      }
+
+      logger.success('\n✅ Data export completed successfully!');
     }
 
-    // TODO: Run verification if requested
+    // Run verification if requested
     if (args.verify) {
-      logger.info('\nVerification will be implemented in Phase 5');
+      logger.info(`\n${'='.repeat(60)}`);
+      logger.info('VERIFYING DATA');
+      logger.info('='.repeat(60));
+
+      const verifier = new Verifier();
+      const generatedData = populator.getGeneratedData();
+
+      // Skip API checks in dry-run mode
+      const skipAPICheck = args.dryRun;
+
+      if (args.platform === 'both' || args.platform === 'cloze') {
+        await verifier.runVerification(
+          'cloze',
+          generatedData.cloze,
+          config.email.baseEmail,
+          { skipAPICheck }
+        );
+      }
+
+      if (args.platform === 'both' || args.platform === 'lofty') {
+        await verifier.runVerification(
+          'lofty',
+          generatedData.lofty,
+          config.email.baseEmail,
+          { skipAPICheck }
+        );
+      }
+
+      logger.success('\n✅ Verification completed!');
     }
 
     logger.success('\n✅ Rollout setup completed successfully!');

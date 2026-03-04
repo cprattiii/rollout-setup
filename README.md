@@ -1,202 +1,303 @@
 # Rollout Setup - Test Data Population
 
-Automated tool to populate Cloze and Lofty CRM platforms with realistic test data for Constant Contact integration testing.
+Automated test data generation and population tool for Cloze/Lofty CRM integration testing.
 
 ## Overview
 
-This tool generates and populates 1000 realistic contacts in each CRM platform (Cloze and Lofty), including:
-- Full contact profiles (name, email, phone, address)
-- Properties (1-2 per contact)
-- Deals/Transactions (1-5 per contact)
-- Activities (emails, calls, meetings, notes)
+This tool generates realistic real estate CRM data (contacts, properties, deals, activities) and populates it into Cloze and Lofty platforms via their APIs. It supports dry-run mode, rate limiting, data export, and verification.
 
-## Prerequisites
+## Features
 
-- Node.js v18 or higher
-- API keys for both Cloze and Lofty
-- API documentation for both platforms
+- **Realistic Data Generation**: Uses Faker.js to generate authentic-looking contacts, properties, deals, and activities
+- **Dual Platform Support**: Populates data to Cloze and/or Lofty
+- **Rate Limiting**: Configurable batch processing with delays and retry logic
+- **Dry Run Mode**: Test without making API calls
+- **Data Export**: Export generated data to JSON and CSV formats
+- **Verification**: Validate email patterns, deal-property linking, and API data
+- **Error Handling**: Exponential backoff retry with detailed error logging
+- **Progress Tracking**: Real-time progress and comprehensive summary reports
 
-## Quick Start
-
-### 1. Install Dependencies
+## Installation
 
 ```bash
 npm install
 ```
 
-### 2. Configure Environment
+## Configuration
 
-Copy `.env.example` to `.env` and fill in your API keys:
+Create a `.env` file (see `.env.example`):
 
-```bash
-cp .env.example .env
+```env
+# API Keys
+CLOZE_API_KEY=your_cloze_api_key_here
+LOFTY_API_KEY=your_lofty_api_key_here
+
+# Email Configuration
+BASE_EMAIL=carl.pratt@constantcontact.com
+
+# Population Settings
+CONTACT_COUNT=1000
+BATCH_SIZE=10
+BATCH_DELAY_MS=200
+MAX_CONCURRENT=3
+MAX_RETRIES=5
 ```
 
-Edit `.env`:
-```bash
-CLOZE_API_KEY=your_actual_cloze_key
-LOFTY_API_KEY=your_actual_lofty_key
-```
+### Configuration Options
 
-### 3. Complete API Research
+- **CLOZE_API_KEY**: Cloze platform API key (required for Cloze population)
+- **LOFTY_API_KEY**: Lofty platform API key (required for Lofty population)
+- **BASE_EMAIL**: Base email address for generating unique contact emails
+  - Cloze contacts: `carl.pratt+cloze_0001@constantcontact.com` through `cloze_1000`
+  - Lofty contacts: `carl.pratt+lofty_0001@constantcontact.com` through `lofty_1000`
+- **CONTACT_COUNT**: Number of contacts to generate per platform (default: 1000)
+- **BATCH_SIZE**: Number of items to process in each batch (default: 10)
+- **BATCH_DELAY_MS**: Delay between batches in milliseconds (default: 200ms)
+- **MAX_CONCURRENT**: Maximum concurrent API requests (default: 3)
+- **MAX_RETRIES**: Maximum retry attempts for failed requests (default: 5)
 
-**IMPORTANT**: Before running population, you must complete the API research in `docs/api-research.md`:
-- Document actual API endpoints
-- Test authentication with both APIs
-- Create one test contact in each platform
-- Verify data appears in dashboards
+## Usage
 
-See `docs/api-research.md` for detailed checklist.
-
-### 4. Run Population
-
-```bash
-# Dry run (generate data without API calls)
-npm run dry-run
-
-# Populate both platforms
-npm run populate
-
-# Populate only Cloze
-npm run populate:cloze
-
-# Populate only Lofty
-npm run populate:lofty
-```
-
-## Command Line Options
+### Basic Commands
 
 ```bash
-node src/index.js [options]
+# Populate both platforms with 1000 contacts each
+node src/index.js
 
-Options:
-  --platform <name>    Platform to populate: cloze, lofty, or both (default: both)
-  --count <number>     Number of contacts to generate (default: 1000)
-  --export <format>    Export format: json, csv, or both (default: both)
-  --verify             Run verification after population (default: true)
-  --dry-run            Generate data without making API calls
-  --help               Show help message
+# Populate only Cloze with 100 contacts
+node src/index.js --platform cloze --count 100
+
+# Populate only Lofty with 500 contacts
+node src/index.js --platform lofty --count 500
+
+# Dry run (no API calls, generates data only)
+node src/index.js --dry-run
+
+# Export data to JSON and CSV
+node src/index.js --export both
+
+# Run with verification
+node src/index.js --verify
+
+# Full workflow: populate, export, and verify
+node src/index.js --export both --verify
 ```
 
-## Project Structure
+### Command-Line Options
+
+- `-p, --platform <name>` - Platform to populate: `cloze`, `lofty`, or `both` (default: both)
+- `-c, --count <number>` - Number of contacts to generate (default: 1000, max: 10000)
+- `--dry-run` - Generate data without making API calls (for testing)
+- `--verify` - Run verification after population
+- `-e, --export <format>` - Export format: `json`, `csv`, or `both` (default: both)
+- `-h, --help` - Show help message
+
+## Data Schema
+
+### Contacts
+- Full name, email, phone, company
+- Address (street, city, state, zip)
+- Contact type: Buyer (40%), Lead (30%), Seller (20%), Past Client (10%)
+- Real estate custom fields (budget range, property preferences, etc.)
+- Email subscription status: true
+
+### Properties (1-2 per contact)
+- Type: Residential, Commercial, Land
+- Full address
+- Price based on property type
+- Residential properties include bedrooms, bathrooms, square feet
+
+### Deals (1-5 per contact)
+- Deal name and status
+- Value (based on linked property or random)
+- 70% linked to properties, 30% without property link
+- Expected/actual close dates based on status
+- Statuses: Prospect, Qualified, Under Contract, Closed-Won, Closed-Lost
+
+### Activities (5-30 per contact)
+- Types: Email (3-10), Call (1-5), Meeting (0-3), Note (2-8)
+- Timestamps spread over last 6 months
+- Context-aware subjects and descriptions
+- Chronologically sorted (oldest first)
+
+## Testing
+
+```bash
+# Test infrastructure (Phase 1)
+node src/test-infrastructure.js
+
+# Test data generators (Phase 2)
+node src/test-generators.js
+
+# Test deal and activity generators (Phase 3)
+node src/test-deal-activity.js
+
+# Test population service (Phase 4)
+node src/test-populator.js
+
+# Test export and verification (Phase 5)
+node src/test-export-verify.js
+```
+
+## Output
+
+### Generated Files
+
+All output files are saved to the `output/` directory:
+
+#### Data Exports
+- `{platform}_contacts.json` / `.csv` - Contact records
+- `{platform}_properties.json` / `.csv` - Property records
+- `{platform}_deals.json` / `.csv` - Deal records
+- `{platform}_activities.json` / `.csv` - Activity records
+
+#### Error Tracking
+- `failed_{platform}.json` - Failed records with error details
+
+### Progress Reports
+
+The tool provides detailed progress information:
+
+```
+============================================================
+Starting population for CLOZE
+============================================================
+
+Generating 1000 contacts for cloze...
+✅ Generated 1000 contacts
+
+Populating contacts in cloze...
+Processing 1000 items in 100 batches
+✅ Successfully created 1000/1000 contacts
+
+Populating properties for 1000 contacts...
+  Generated 1478 properties
+Processing 1478 items in 148 batches
+...
+
+============================================================
+POPULATION SUMMARY
+============================================================
+
+CLOZE:
+  Duration: 245.3 seconds
+  Contacts: 1000/1000 (0 failed)
+  Properties: 1478/1478 (0 failed)
+  Deals: 2945/2945 (0 failed)
+  Activities: 16234/16234 (0 failed)
+  Success Rate: 100.0%
+
+OVERALL:
+  Total Duration: 245.3 seconds
+============================================================
+
+✅ Rollout setup completed successfully!
+```
+
+## Rate Limiting Strategy
+
+The tool implements multiple layers of rate limiting to prevent API throttling:
+
+1. **Batch Processing**: Items are processed in configurable batches
+2. **Batch Delays**: Configurable delay between batches
+3. **Concurrency Limits**: Maximum concurrent requests
+4. **Exponential Backoff**: Automatic retry with increasing delays (1s, 2s, 4s, 8s)
+5. **Max Retries**: Configurable maximum retry attempts
+
+Default configuration processes ~50 items/second with built-in safety margins.
+
+## Verification
+
+The verification module checks:
+
+- **Email Patterns**: Validates correct email format (platform_0001 through platform_1000)
+- **Deal-Property Linking**: Verifies 70/30 distribution (±15% tolerance)
+- **Sample Contacts**: Checks that contacts exist in platform API
+- **Data Counts**: Retrieves count statistics from platform
+
+Run verification with:
+```bash
+node src/index.js --verify --dry-run  # Verify without API checks
+node src/index.js --verify            # Full verification including API
+```
+
+## Error Handling
+
+- **Automatic Retries**: Failed requests retry with exponential backoff
+- **Error Logging**: All errors logged with context and timestamps
+- **Failed Records**: Saved to JSON files for troubleshooting
+- **Graceful Degradation**: Continues processing after individual failures
+
+## Development
+
+### Project Structure
 
 ```
 rollout-setup/
 ├── src/
-│   ├── index.js              # Main entry point
-│   ├── config.js             # Configuration loader
-│   ├── generators/           # Data generation modules
-│   │   ├── contact.js
-│   │   ├── property.js
-│   │   ├── deal.js
-│   │   └── activity.js
-│   ├── clients/              # API client modules
-│   │   ├── cloze.js
-│   │   └── lofty.js
-│   ├── services/             # Core services
-│   │   ├── populator.js
-│   │   ├── rateLimit.js
-│   │   ├── retry.js
-│   │   └── verifier.js
-│   ├── exporters/            # Data export modules
-│   │   ├── json.js
-│   │   └── csv.js
-│   └── utils/                # Utility functions
-│       ├── logger.js
-│       └── validator.js
-├── output/                   # Generated data files
-├── docs/                     # Documentation
-│   └── api-research.md
-└── package.json
+│   ├── index.js                 # Main entry point
+│   ├── config.js                # Configuration loader
+│   ├── clients/
+│   │   ├── cloze.js            # Cloze API client
+│   │   └── lofty.js            # Lofty API client
+│   ├── generators/
+│   │   ├── contact.js          # Contact data generator
+│   │   ├── property.js         # Property data generator
+│   │   ├── deal.js             # Deal data generator
+│   │   └── activity.js         # Activity data generator
+│   ├── services/
+│   │   ├── populator.js        # Main orchestration service
+│   │   ├── rateLimit.js        # Rate limiting logic
+│   │   ├── retry.js            # Retry with backoff
+│   │   ├── exporter.js         # Data export service
+│   │   └── verifier.js         # Verification service
+│   ├── utils/
+│   │   ├── logger.js           # Logging utility
+│   │   └── validator.js        # Data validation
+│   └── test-*.js               # Test suites
+├── output/                      # Generated data files
+├── .env                         # Environment configuration
+├── package.json
+└── README.md
 ```
 
-## Data Schema
+### Adding New Data Types
 
-### Email Address Patterns
+1. Create generator in `src/generators/`
+2. Add validation in `src/utils/validator.js`
+3. Add client methods in `src/clients/`
+4. Integrate into `src/services/populator.js`
+5. Add tests in `src/test-*.js`
 
-- **Cloze**: `carl.pratt+cloze_01@constantcontact.com` through `carl.pratt+cloze_1000@constantcontact.com`
-- **Lofty**: `carl.pratt+lofty_01@constantcontact.com` through `carl.pratt+lofty_1000@constantcontact.com`
+## API Endpoints
 
-Numbers are zero-padded (01, 02, ..., 99, 100, ..., 1000).
+**Note**: API endpoints in client files are currently placeholders marked with `TODO`. You need to:
 
-### Contact Types Distribution
-
-- 40% Buyers
-- 30% Leads
-- 20% Sellers
-- 10% Past Clients
-
-### Relationships
-
-- Each contact has 1-2 properties
-- Each contact has 1-5 deals
-- 70% of deals reference a property
-- 30% of deals have no property
-- Each contact has 5-20 activities
-
-## Output Files
-
-After population, you'll find in `output/`:
-
-- `cloze_contacts.json` - All Cloze data (JSON format)
-- `lofty_contacts.json` - All Lofty data (JSON format)
-- `cloze_contacts.csv` - Cloze contacts (CSV format)
-- `lofty_contacts.csv` - Lofty contacts (CSV format)
-- `failed_cloze.json` - Failed records for Cloze (if any)
-- `failed_lofty.json` - Failed records for Lofty (if any)
-
-## Rate Limiting
-
-The tool implements careful rate limiting to avoid API throttling:
-
-- **Batch Size**: 10 records per batch
-- **Batch Delay**: 200ms between batches
-- **Max Concurrent**: 3 simultaneous API calls
-- **Retry Logic**: Exponential backoff (1s, 2s, 4s, 8s)
-- **Max Retries**: 5 attempts per failed request
+1. Obtain API documentation from Cloze and Lofty
+2. Update endpoint URLs in `src/clients/cloze.js` and `src/clients/lofty.js`
+3. Verify authentication methods
+4. Test with small batches before full population
 
 ## Troubleshooting
 
-### "Configuration validation failed"
-- Check that `.env` file exists and has valid values
-- Ensure API keys are set
-- Verify BASE_EMAIL is a valid email address
+### Common Issues
 
-### "API authentication failed"
-- Verify API keys are correct
-- Check that keys have proper permissions
-- Review API documentation for auth requirements
+**Problem**: API authentication fails
+- **Solution**: Verify API keys in `.env` file are correct
 
-### "Rate limit exceeded"
-- Increase BATCH_DELAY_MS in `.env`
-- Decrease BATCH_SIZE in `.env`
-- Decrease MAX_CONCURRENT in `.env`
+**Problem**: Rate limit errors
+- **Solution**: Increase `BATCH_DELAY_MS` or decrease `BATCH_SIZE`
 
-### "Contact creation failed"
-- Check API endpoint URLs in `src/clients/`
-- Verify request body matches API schema
-- Review error logs for specific API errors
+**Problem**: Memory issues with large datasets
+- **Solution**: Reduce `CONTACT_COUNT` or `MAX_CONCURRENT`
 
-## Development Status
-
-**Current Phase**: Phase 0 - API Research and Setup
-**Status**: ⏳ Awaiting API documentation and keys
-
-**Next Steps**:
-1. User provides API keys and documentation
-2. Complete API research and testing
-3. Implement API clients (Phase 1)
-4. Implement data generators (Phases 2-3)
-5. Implement population service (Phase 4)
-6. Implement export and verification (Phase 5)
-
-## Support
-
-For issues or questions:
-1. Check `docs/api-research.md` for API requirements
-2. Review error logs in console output
-3. Check `output/failed_*.json` for failed records
+**Problem**: Circular reference errors in JSON export
+- **Solution**: Fixed in Phase 5 - ensure you have latest code
 
 ## License
 
-ISC
+This is an internal tool for Constant Contact integration testing.
+
+## Support
+
+For issues or questions, see the project specification in `codev/specs/2-rollout-setup.md`.
