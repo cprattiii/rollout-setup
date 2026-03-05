@@ -17,28 +17,26 @@ export class LoftyClient {
       baseURL: this.baseUrl,
       headers: {
         'Content-Type': 'application/json',
-        // TODO: Update authorization header format based on API docs
-        'Authorization': `Bearer ${this.apiKey}`,
+        'Authorization': `token ${this.apiKey}`,
       },
       timeout: 30000,
     });
   }
 
   /**
-   * Create a contact in Lofty
+   * Create a contact (lead) in Lofty
    * @param {Object} contactData - Contact data
-   * @returns {Promise<Object>} - Created contact with ID
+   * @returns {Promise<Object>} - Created contact with leadId
    */
   async createContact(contactData) {
     return retryWithBackoff(
       async () => {
-        logger.debug('Creating contact in Lofty', { email: contactData.email });
+        logger.debug('Creating lead in Lofty', { email: contactData.email });
 
-        // TODO: Update endpoint path based on API docs
-        const response = await this.client.post('/api/contacts', contactData);
+        const response = await this.client.post('/leads', contactData);
 
-        logger.debug('Contact created successfully', { id: response.data.id });
-        return response.data;
+        logger.debug('Lead created successfully', { leadId: response.data.leadId });
+        return { id: response.data.leadId, ...response.data };
       },
       {
         maxRetries: config.population.maxRetries,
@@ -49,109 +47,79 @@ export class LoftyClient {
 
   /**
    * Create a property in Lofty
+   * Note: Lofty doesn't have a separate properties endpoint.
+   * Properties are part of the lead data structure.
    * @param {Object} propertyData - Property data
-   * @returns {Promise<Object>} - Created property with ID
+   * @returns {Promise<Object>} - Skipped (not supported)
    */
   async createProperty(propertyData) {
-    return retryWithBackoff(
-      async () => {
-        logger.debug('Creating property in Lofty', {
-          contactId: propertyData.contactId,
-        });
-
-        // TODO: Update endpoint path based on API docs
-        const response = await this.client.post('/api/properties', propertyData);
-
-        logger.debug('Property created successfully', { id: response.data.id });
-        return response.data;
-      },
-      {
-        maxRetries: config.population.maxRetries,
-        shouldRetry: isRetryableError,
-      }
-    );
+    logger.debug('Skipping property creation - not supported by Lofty API', {
+      contactId: propertyData.contactId,
+    });
+    // Lofty doesn't have a separate properties endpoint
+    // Properties are embedded in leads
+    return { id: null, skipped: true };
   }
 
   /**
    * Create a deal in Lofty
+   * Note: Lofty doesn't have a separate deals endpoint.
+   * Transaction information is part of the lead lifecycle/stages.
    * @param {Object} dealData - Deal data
-   * @returns {Promise<Object>} - Created deal with ID
+   * @returns {Promise<Object>} - Skipped (not supported)
    */
   async createDeal(dealData) {
-    return retryWithBackoff(
-      async () => {
-        logger.debug('Creating deal in Lofty', {
-          contactId: dealData.contactId,
-          name: dealData.name,
-        });
-
-        // TODO: Update endpoint path based on API docs
-        const response = await this.client.post('/api/deals', dealData);
-
-        logger.debug('Deal created successfully', { id: response.data.id });
-        return response.data;
-      },
-      {
-        maxRetries: config.population.maxRetries,
-        shouldRetry: isRetryableError,
-      }
-    );
+    logger.debug('Skipping deal creation - not supported by Lofty API', {
+      contactId: dealData.contactId,
+      name: dealData.name,
+    });
+    // Lofty doesn't have a separate deals endpoint
+    // Deals are managed through lead stages
+    return { id: null, skipped: true };
   }
 
   /**
    * Create an activity in Lofty
+   * Note: Lofty doesn't have a generic activities endpoint.
+   * Use /notes or /tasks endpoints instead, which require specific parameters.
    * @param {Object} activityData - Activity data
-   * @returns {Promise<Object>} - Created activity with ID
+   * @returns {Promise<Object>} - Skipped (not supported)
    */
   async createActivity(activityData) {
-    return retryWithBackoff(
-      async () => {
-        logger.debug('Creating activity in Lofty', {
-          contactId: activityData.contactId,
-          type: activityData.type,
-        });
-
-        // TODO: Update endpoint path based on API docs
-        const response = await this.client.post('/api/activities', activityData);
-
-        logger.debug('Activity created successfully', { id: response.data.id });
-        return response.data;
-      },
-      {
-        maxRetries: config.population.maxRetries,
-        shouldRetry: isRetryableError,
-      }
-    );
+    logger.debug('Skipping activity creation - not supported by Lofty API', {
+      contactId: activityData.contactId,
+      type: activityData.type,
+    });
+    // Lofty doesn't have a generic activities endpoint
+    // Activities would need to be created as notes or tasks with specific formats
+    return { id: null, skipped: true };
   }
 
   /**
-   * Get contact count
-   * @returns {Promise<number>} - Number of contacts
+   * Get lead count
+   * @returns {Promise<number>} - Number of leads
    */
   async getContactCount() {
     try {
-      // TODO: Update endpoint based on API docs
-      // Options: /api/contacts?count=true or /api/contacts/count
-      const response = await this.client.get('/api/contacts?count=true');
-      return response.data.count;
+      const response = await this.client.get('/leads');
+      return response.data._metadata.total;
     } catch (error) {
-      logger.error('Failed to get contact count', { error: error.message });
+      logger.error('Failed to get lead count', { error: error.message });
       throw error;
     }
   }
 
   /**
-   * Get contact by ID
-   * @param {string} contactId - Contact ID
-   * @returns {Promise<Object>} - Contact data
+   * Get lead by ID
+   * @param {string} leadId - Lead ID
+   * @returns {Promise<Object>} - Lead data
    */
-  async getContact(contactId) {
+  async getContact(leadId) {
     try {
-      // TODO: Update endpoint based on API docs
-      const response = await this.client.get(`/api/contacts/${contactId}`);
+      const response = await this.client.get(`/leads/${leadId}`);
       return response.data;
     } catch (error) {
-      logger.error('Failed to get contact', { contactId, error: error.message });
+      logger.error('Failed to get lead', { leadId, error: error.message });
       throw error;
     }
   }
@@ -164,8 +132,7 @@ export class LoftyClient {
     try {
       logger.info('Testing Lofty API connection...');
 
-      // TODO: Update with actual test endpoint (might be /api/me or /api/auth/test)
-      const response = await this.client.get('/api/me');
+      const response = await this.client.get('/me');
 
       logger.success('Lofty API connection successful', {
         user: response.data.email || response.data.id,
