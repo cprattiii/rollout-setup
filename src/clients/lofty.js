@@ -25,6 +25,9 @@ export class LoftyClient {
 
   /**
    * Create a contact (lead) in Lofty
+   * Note: Lofty requires a two-step process:
+   * 1. POST /leads to create the lead (gets leadId)
+   * 2. PUT /leads/:id to update with email/phone (POST doesn't save these fields)
    * @param {Object} contactData - Contact data
    * @returns {Promise<Object>} - Created contact with leadId
    */
@@ -33,10 +36,27 @@ export class LoftyClient {
       async () => {
         logger.debug('Creating lead in Lofty', { email: contactData.email });
 
-        const response = await this.client.post('/leads', contactData);
+        // Step 1: Create the lead (POST)
+        const createResponse = await this.client.post('/leads', {
+          firstName: contactData.firstName,
+          lastName: contactData.lastName,
+        });
 
-        logger.debug('Lead created successfully', { leadId: response.data.leadId });
-        return { id: response.data.leadId, ...response.data };
+        const leadId = createResponse.data.leadId;
+        logger.debug('Lead created, updating with contact info', { leadId });
+
+        // Step 2: Update with email and phone (PUT)
+        await this.client.put(`/leads/${leadId}`, {
+          firstName: contactData.firstName,
+          lastName: contactData.lastName,
+          emails: [contactData.email],  // Lofty expects array
+          phones: [contactData.phone],   // Lofty expects array
+          cannotEmail: false,             // Enable email marketing
+          unsubscription: false,          // Not unsubscribed
+        });
+
+        logger.debug('Lead updated with email/phone', { leadId, email: contactData.email });
+        return { id: leadId, leadId };
       },
       {
         maxRetries: config.population.maxRetries,

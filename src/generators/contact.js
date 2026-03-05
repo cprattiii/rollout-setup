@@ -62,7 +62,7 @@ const PROPERTY_INTERESTS = [
  */
 export function generateEmail(platform, index, baseEmail) {
   const [localPart, domain] = baseEmail.split('@');
-  const paddedIndex = String(index).padStart(4, '0'); // Zero-pad to 4 digits
+  const paddedIndex = String(index).padStart(2, '0'); // Zero-pad to 2 digits
   return `${localPart}+${platform}_${paddedIndex}@${domain}`;
 }
 
