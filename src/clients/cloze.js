@@ -17,8 +17,10 @@ export class ClozeClient {
       baseURL: this.baseUrl,
       headers: {
         'Content-Type': 'application/json',
-        // TODO: Update authorization header format based on API docs
         'Authorization': `Bearer ${this.apiKey}`,
+      },
+      params: {
+        api_key: this.apiKey,  // Cloze also accepts api_key as query param
       },
       timeout: 30000,
     });
@@ -34,11 +36,43 @@ export class ClozeClient {
       async () => {
         logger.debug('Creating contact in Cloze', { email: contactData.email });
 
-        // TODO: Update endpoint path based on API docs
-        const response = await this.client.post('/contacts', contactData);
+        // Map our data to Cloze format
+        // NOTE: Cloze uses "value" not "email"/"phone" in arrays
+        const clozeContact = {
+          name: `${contactData.firstName} ${contactData.lastName}`,
+          emails: [
+            {
+              value: contactData.email,
+            },
+          ],
+          phones: [
+            {
+              value: contactData.phone,
+            },
+          ],
+          addresses: contactData.address ? [
+            {
+              street: contactData.address.street,
+              city: contactData.address.city,
+              state: contactData.address.state,
+              zip: contactData.address.zip,
+            },
+          ] : [],
+          company: contactData.company || '',
+          customFields: {
+            contactType: contactData.type,
+            emailSubscribed: contactData.emailSubscriptionStatus,
+            ...contactData.customFields,
+          },
+        };
+
+        const response = await this.client.post('/people/update', clozeContact);
 
         logger.debug('Contact created successfully', { id: response.data.id });
-        return response.data;
+        return {
+          id: response.data.id,
+          ...contactData,
+        };
       },
       {
         maxRetries: config.population.maxRetries,
@@ -59,13 +93,31 @@ export class ClozeClient {
           contactId: propertyData.contactId,
         });
 
-        // TODO: Update endpoint path based on API docs
-        // Note: Cloze might not have a dedicated properties endpoint
-        // May need to use custom fields on contacts instead
-        const response = await this.client.post('/properties', propertyData);
+        // Create as a project with property type
+        const clozeProperty = {
+          name: `Property: ${propertyData.address.street}`,
+          people: [propertyData.contactId],
+          customFields: {
+            entityType: 'property',
+            address: propertyData.address.street,
+            city: propertyData.address.city,
+            state: propertyData.address.state,
+            zip: propertyData.address.zip,
+            type: propertyData.type,
+            price: propertyData.price,
+            bedrooms: propertyData.bedrooms,
+            bathrooms: propertyData.bathrooms,
+            squareFeet: propertyData.squareFeet,
+          },
+        };
+
+        const response = await this.client.post('/projects/create', clozeProperty);
 
         logger.debug('Property created successfully', { id: response.data.id });
-        return response.data;
+        return {
+          id: response.data.id,
+          ...propertyData,
+        };
       },
       {
         maxRetries: config.population.maxRetries,
@@ -87,11 +139,26 @@ export class ClozeClient {
           name: dealData.name,
         });
 
-        // TODO: Update endpoint path based on API docs
-        const response = await this.client.post('/deals', dealData);
+        const clozeDeal = {
+          name: dealData.name,
+          people: [dealData.contactId],
+          stage: dealData.status.toLowerCase().replace(/\s+/g, '-'),
+          value: dealData.value,
+          expectedCloseDate: dealData.expectedCloseDate,
+          actualCloseDate: dealData.actualCloseDate,
+          customFields: {
+            propertyId: dealData.propertyId,
+            dealType: 'real-estate',
+          },
+        };
+
+        const response = await this.client.post('/projects/create', clozeDeal);
 
         logger.debug('Deal created successfully', { id: response.data.id });
-        return response.data;
+        return {
+          id: response.data.id,
+          ...dealData,
+        };
       },
       {
         maxRetries: config.population.maxRetries,
@@ -113,11 +180,21 @@ export class ClozeClient {
           type: activityData.type,
         });
 
-        // TODO: Update endpoint path based on API docs
-        const response = await this.client.post('/activities', activityData);
+        const clozeNote = {
+          subject: activityData.subject,
+          body: activityData.description,
+          people: [activityData.contactId],
+          date: activityData.timestamp,
+          type: activityData.type.toLowerCase(),
+        };
+
+        const response = await this.client.post('/timeline/content/create', clozeNote);
 
         logger.debug('Activity created successfully', { id: response.data.id });
-        return response.data;
+        return {
+          id: response.data.id,
+          ...activityData,
+        };
       },
       {
         maxRetries: config.population.maxRetries,
@@ -166,8 +243,8 @@ export class ClozeClient {
     try {
       logger.info('Testing Cloze API connection...');
 
-      // TODO: Update with actual test endpoint (might be /me or /auth/test)
-      const response = await this.client.get('/me');
+      // Use Cloze's user profile endpoint to test connection
+      const response = await this.client.get('/user/profile');
 
       logger.success('Cloze API connection successful', {
         user: response.data.email || response.data.id,
