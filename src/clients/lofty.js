@@ -25,9 +25,10 @@ export class LoftyClient {
 
   /**
    * Create a contact (lead) in Lofty
-   * Note: Lofty requires a two-step process:
+   * Note: Lofty requires a three-step process:
    * 1. POST /leads to create the lead (gets leadId)
    * 2. PUT /leads/:id to update with email/phone (POST doesn't save these fields)
+   * 3. PUT /leads/:id with userEmailList to mark email as valid
    * @param {Object} contactData - Contact data
    * @returns {Promise<Object>} - Created contact with leadId
    */
@@ -46,7 +47,7 @@ export class LoftyClient {
         logger.debug('Lead created, updating with contact info', { leadId });
 
         // Step 2: Update with email and phone (PUT)
-        await this.client.put(`/leads/${leadId}`, {
+        const updateResponse = await this.client.put(`/leads/${leadId}`, {
           firstName: contactData.firstName,
           lastName: contactData.lastName,
           emails: [contactData.email],  // Lofty expects array
@@ -54,6 +55,33 @@ export class LoftyClient {
           cannotEmail: false,             // Enable email marketing
           unsubscription: false,          // Not unsubscribed
         });
+
+        // Get leadUserId and teamId from the update response
+        const leadUserId = updateResponse.data.lead?.leadUserId || updateResponse.data.leadUserId;
+        const teamId = updateResponse.data.lead?.teamId || updateResponse.data.teamId;
+
+        // Step 3: Mark email as valid (otherwise Lofty marks it as invalid by default)
+        if (leadUserId && teamId) {
+          await this.client.put(`/leads/${leadId}`, {
+            firstName: contactData.firstName,
+            lastName: contactData.lastName,
+            emails: [contactData.email],
+            phones: [contactData.phone],
+            userEmailList: [{
+              userId: leadUserId,
+              familyMemberId: 0,
+              email: contactData.email,
+              valid: true,              // Mark as valid
+              verified: false,
+              bounced: false,
+              isPrimary: true,
+              primary: true,
+              teamId: teamId,
+              deleteFlag: false,
+              description: ""
+            }]
+          });
+        }
 
         logger.debug('Lead updated with email/phone', { leadId, email: contactData.email });
         return { id: leadId, leadId };
