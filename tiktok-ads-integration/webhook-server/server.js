@@ -25,10 +25,10 @@ app.use(cors());
 app.use(express.json());
 
 // Data storage file
-const LEADS_FILE = path.join(__dirname, '../database/leads.json');
+const LEADS_FILE = path.join(__dirname, 'database/leads.json');
 
 // Ensure database directory and file exist
-const dbDir = path.join(__dirname, '../database');
+const dbDir = path.join(__dirname, 'database');
 if (!fs.existsSync(dbDir)) {
     fs.mkdirSync(dbDir, { recursive: true });
 }
